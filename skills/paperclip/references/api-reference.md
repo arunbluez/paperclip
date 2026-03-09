@@ -486,6 +486,10 @@ Terminal states: `done`, `cancelled`
 | GET    | `/api/issues/:issueId/approvals`   | List approvals linked to issue                                                           |
 | POST   | `/api/issues/:issueId/approvals`   | Link approval to issue                                                                    |
 | DELETE | `/api/issues/:issueId/approvals/:approvalId` | Unlink approval from issue                                                     |
+| GET    | `/api/issues/:issueId/attachments` | List attachments                                                                         |
+| POST   | `/api/companies/:companyId/issues/:issueId/attachments` | Upload image attachment (multipart, field: `file`)                    |
+| GET    | `/api/attachments/:attachmentId/content` | Serve attachment file                                                              |
+| DELETE | `/api/attachments/:attachmentId`   | Delete attachment                                                                        |
 
 ### Companies, Projects, Goals
 
@@ -506,6 +510,39 @@ Terminal states: `done`, `cancelled`
 | POST   | `/api/companies/:companyId/goals`    | Create goal        |
 | PATCH  | `/api/goals/:goalId`                 | Update goal        |
 
+### Issue Attachments (Images)
+
+| Method | Path                                                     | Description                                      |
+| ------ | -------------------------------------------------------- | ------------------------------------------------ |
+| GET    | `/api/issues/:issueId/attachments`                       | List attachments for an issue                    |
+| POST   | `/api/companies/:companyId/issues/:issueId/attachments`  | Upload an image attachment (multipart form data) |
+| GET    | `/api/attachments/:attachmentId/content`                 | Serve/download the attachment file               |
+| DELETE | `/api/attachments/:attachmentId`                         | Delete an attachment                             |
+
+**Uploading an image:**
+
+Use a multipart `POST` with the file in a field named `file`. Allowed content types: `image/png`, `image/jpeg`, `image/webp`, `image/gif`. Max size: 10 MB.
+
+```bash
+# Example using curl (agents should use their HTTP client's multipart support)
+curl -X POST /api/companies/{companyId}/issues/{issueId}/attachments \
+  -H "Authorization: Bearer {token}" \
+  -F "file=@/path/to/screenshot.png"
+```
+
+The response includes a `contentPath` field (e.g. `/api/attachments/{id}/content`) that can be used in comments as a markdown image:
+
+```
+PATCH /api/issues/{issueId}
+{ "comment": "Here is the screenshot:\n\n![screenshot](/api/attachments/{attachmentId}/content)" }
+```
+
+**Typical agent workflow for attaching images:**
+
+1. Generate or save the image file to disk.
+2. Upload it via `POST /api/companies/{companyId}/issues/{issueId}/attachments` with the file as multipart form data.
+3. Use the returned `contentPath` to embed in a comment or just leave it as an attachment on the issue.
+
 ### Approvals, Costs, Activity, Dashboard
 
 | Method | Path                                         | Description                        |
@@ -518,7 +555,7 @@ Terminal states: `done`, `cancelled`
 | GET    | `/api/approvals/:approvalId/comments`        | Approval comments                  |
 | POST   | `/api/approvals/:approvalId/comments`        | Add approval comment               |
 | POST   | `/api/approvals/:approvalId/request-revision`| Board asks for revision            |
-| POST   | `/api/approvals/:approvalId/resubmit`        | Resubmit revised approval          |
+| POST   | `/api/approvals/:approvalId/resubmit`        | Resubmit revised approval (body: `{ "payload": { ...updated } }`) — updates the existing approval in-place, resets status to `pending`. **Use this instead of creating a new approval when revision_requested.** |
 | GET    | `/api/companies/:companyId/costs/summary`    | Company cost summary               |
 | GET    | `/api/companies/:companyId/costs/by-agent`   | Costs by agent                     |
 | GET    | `/api/companies/:companyId/costs/by-project` | Costs by project                   |

@@ -70,3 +70,6 @@ export type {
   CompanyPortabilityImportResult,
   CompanyPortabilityExportRequest,
 } from "./company-portability.js";
+export type { ChatSession, ChatMessage, ChatStreamEvent, ChatStreamEventType } from "./chat.js";
+export type { McpServer, AgentMcpServer } from "./mcp.js";
+export type { AgentSkill, SkillCatalogEntry, CustomSkill } from "./skill.js";

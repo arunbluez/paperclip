@@ -1,13 +1,15 @@
-import { UserPlus, Lightbulb, ShieldCheck } from "lucide-react";
+import { UserPlus, Lightbulb, ShieldCheck, CircleAlert } from "lucide-react";
 
 export const typeLabel: Record<string, string> = {
   hire_agent: "Hire Agent",
   approve_ceo_strategy: "CEO Strategy",
+  action_approval: "Action Approval",
 };
 
 export const typeIcon: Record<string, typeof UserPlus> = {
   hire_agent: UserPlus,
   approve_ceo_strategy: Lightbulb,
+  action_approval: CircleAlert,
 };
 
 export const defaultTypeIcon = ShieldCheck;
@@ -69,7 +71,25 @@ export function CeoStrategyPayload({ payload }: { payload: Record<string, unknow
   );
 }
 
+export function ActionApprovalPayload({ payload }: { payload: Record<string, unknown> }) {
+  const { title, description, ...rest } = payload;
+  return (
+    <div className="mt-3 space-y-1.5 text-sm">
+      {!!title && <div className="font-medium">{String(title)}</div>}
+      {!!description && (
+        <div className="rounded-md bg-muted/40 px-3 py-2 text-sm text-muted-foreground whitespace-pre-wrap">
+          {String(description)}
+        </div>
+      )}
+      {Object.entries(rest).map(([key, value]) => (
+        <PayloadField key={key} label={key} value={typeof value === "object" ? JSON.stringify(value) : value} />
+      ))}
+    </div>
+  );
+}
+
 export function ApprovalPayloadRenderer({ type, payload }: { type: string; payload: Record<string, unknown> }) {
   if (type === "hire_agent") return <HireAgentPayload payload={payload} />;
+  if (type === "action_approval") return <ActionApprovalPayload payload={payload} />;
   return <CeoStrategyPayload payload={payload} />;
 }

@@ -70,5 +70,24 @@ export const queryKeys = {
     ["heartbeats", companyId, agentId] as const,
   liveRuns: (companyId: string) => ["live-runs", companyId] as const,
   runIssues: (runId: string) => ["run-issues", runId] as const,
+  chat: {
+    sessions: (agentId: string) => ["chat", "sessions", agentId] as const,
+    messages: (sessionId: string) => ["chat", "messages", sessionId] as const,
+    activeChatAgents: (companyId: string) => ["chat", "active-agents", companyId] as const,
+  },
+  skills: {
+    catalog: ["skills", "catalog"] as const,
+    forAgent: (agentId: string) => ["skills", "agent", agentId] as const,
+    forCompany: (companyId: string) => ["skills", "company", companyId] as const,
+    custom: (companyId: string) => ["skills", "custom", companyId] as const,
+  },
+  mcpServers: {
+    list: (companyId: string) => ["mcp-servers", companyId] as const,
+    detail: (id: string) => ["mcp-servers", "detail", id] as const,
+    forAgent: (agentId: string) => ["mcp-servers", "agent", agentId] as const,
+    browserStatus: (agentId: string) => ["mcp-servers", "browser-status", agentId] as const,
+    agentCounts: (companyId: string) => ["mcp-servers", "agent-counts", companyId] as const,
+    cdpChromeStatus: ["mcp-servers", "cdp-chrome-status"] as const,
+  },
   org: (companyId: string) => ["org", companyId] as const,
 };

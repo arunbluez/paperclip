@@ -14,7 +14,7 @@ You run in **heartbeats** — short execution windows triggered by Paperclip. Ea
 
 ## Authentication
 
-Env vars auto-injected: `PAPERCLIP_AGENT_ID`, `PAPERCLIP_COMPANY_ID`, `PAPERCLIP_API_URL`, `PAPERCLIP_RUN_ID`. Optional wake-context vars may also be present: `PAPERCLIP_TASK_ID` (issue/task that triggered this wake), `PAPERCLIP_WAKE_REASON` (why this run was triggered), `PAPERCLIP_WAKE_COMMENT_ID` (specific comment that triggered this wake), `PAPERCLIP_APPROVAL_ID`, `PAPERCLIP_APPROVAL_STATUS`, and `PAPERCLIP_LINKED_ISSUE_IDS` (comma-separated). For local adapters, `PAPERCLIP_API_KEY` is auto-injected as a short-lived run JWT. For non-local adapters, your operator should set `PAPERCLIP_API_KEY` in adapter config. All requests use `Authorization: Bearer $PAPERCLIP_API_KEY`. All endpoints under `/api`, all JSON. Never hard-code the API URL.
+Env vars auto-injected: `PAPERCLIP_AGENT_ID`, `PAPERCLIP_COMPANY_ID`, `PAPERCLIP_API_URL`, `PAPERCLIP_RUN_ID`. Optional wake-context vars may also be present: `PAPERCLIP_TASK_ID` (issue/task that triggered this wake), `PAPERCLIP_WAKE_REASON` (why this run was triggered — e.g. `approval_approved`, `approval_rejected`, `approval_revision_requested`), `PAPERCLIP_WAKE_COMMENT_ID` (specific comment that triggered this wake), `PAPERCLIP_APPROVAL_ID`, `PAPERCLIP_APPROVAL_STATUS`, `PAPERCLIP_APPROVAL_DECISION_NOTE` (the board's feedback/comment on the approval decision), and `PAPERCLIP_LINKED_ISSUE_IDS` (comma-separated). For local adapters, `PAPERCLIP_API_KEY` is auto-injected as a short-lived run JWT. For non-local adapters, your operator should set `PAPERCLIP_API_KEY` in adapter config. All requests use `Authorization: Bearer $PAPERCLIP_API_KEY`. All endpoints under `/api`, all JSON. Never hard-code the API URL.
 
 **Run audit trail:** You MUST include `-H 'X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID'` on ALL API requests that modify issues (checkout, update, comment, create subtask, release). This links your actions to the current heartbeat run for traceability.
 
@@ -27,11 +27,11 @@ Follow these steps every time you wake up:
 **Step 2 — Approval follow-up (when triggered).** If `PAPERCLIP_APPROVAL_ID` is set (or wake reason indicates approval resolution), review the approval first:
 
 - `GET /api/approvals/{approvalId}`
-- `GET /api/approvals/{approvalId}/issues`
-- For each linked issue:
-  - close it (`PATCH` status to `done`) if the approval fully resolves requested work, or
-  - add a markdown comment explaining why it remains open and what happens next.
-    Always include links to the approval and issue in that comment.
+- `GET /api/approvals/{approvalId}/comments` — read any board comments/feedback
+- Check `PAPERCLIP_APPROVAL_STATUS` and `PAPERCLIP_APPROVAL_DECISION_NOTE`:
+  - **approved**: proceed with the action. For each linked issue, close it or comment on what happens next.
+  - **revision_requested**: the board wants changes. Read `PAPERCLIP_APPROVAL_DECISION_NOTE` for their feedback, revise accordingly, then **resubmit the SAME approval** via `POST /api/approvals/{approvalId}/resubmit` with `{ "payload": { ...updated fields... } }`. **NEVER create a new approval** — always resubmit the existing one so the board sees a single updated approval instead of duplicates.
+  - **rejected**: the action was denied. Read the decision note, comment on linked issues explaining the outcome, and move on.
 
 **Step 3 — Get assignments.** `GET /api/companies/{companyId}/issues?assigneeAgentId={your-agent-id}&status=todo,in_progress,blocked`. Results sorted by priority. This is your inbox.
 

@@ -14,6 +14,7 @@ import { useDialog } from "../context/DialogContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
 import { AgentConfigForm } from "../components/AgentConfigForm";
+import { ChatPanel } from "../components/ChatPanel";
 import { adapterLabels, roleLabels } from "../components/agent-config-primitives";
 import { getUIAdapter, buildTranscript } from "../adapters";
 import type { TranscriptEntry } from "../adapters";
@@ -53,9 +54,16 @@ import {
   ChevronDown,
   ArrowLeft,
   Settings,
+  MessageSquare,
+  Plug2,
+  Sparkles,
+  X,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { AgentIcon, AgentIconPicker } from "../components/AgentIconPicker";
+import { mcpServersApi } from "../api/mcp-servers";
+import { skillsApi } from "../api/skills";
+import { AgentConfigSheet } from "../components/AgentConfigSheet";
 import { isUuidLike, type Agent, type HeartbeatRun, type HeartbeatRunEvent, type AgentRuntimeState } from "@paperclipai/shared";
 import { agentRouteRef } from "../lib/utils";
 
@@ -172,11 +180,12 @@ function scrollToContainerBottom(container: ScrollContainer, behavior: ScrollBeh
   container.scrollTo({ top: container.scrollHeight, behavior });
 }
 
-type AgentDetailView = "overview" | "configure" | "runs";
+type AgentDetailView = "overview" | "configure" | "runs" | "chat";
 
 function parseAgentDetailView(value: string | null): AgentDetailView {
   if (value === "configure" || value === "configuration") return "configure";
   if (value === "runs") return value;
+  if (value === "chat") return value;
   return "overview";
 }
 
@@ -290,6 +299,38 @@ export function AgentDetail() {
     queryFn: () => agentsApi.list(resolvedCompanyId!),
     enabled: !!resolvedCompanyId,
   });
+
+  // MCP servers assigned to this agent
+  const { data: agentMcpServers } = useQuery({
+    queryKey: queryKeys.mcpServers.forAgent(resolvedAgentId ?? ""),
+    queryFn: () => mcpServersApi.listForAgent(resolvedAgentId!),
+    enabled: !!resolvedAgentId,
+  });
+
+  const removeMcp = useMutation({
+    mutationFn: (mcpServerId: string) => mcpServersApi.removeFromAgent(resolvedAgentId!, mcpServerId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.mcpServers.forAgent(resolvedAgentId!) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.mcpServers.list(resolvedCompanyId!) });
+    },
+  });
+
+  // Skills assigned to this agent
+  const { data: agentSkills } = useQuery({
+    queryKey: queryKeys.skills.forAgent(resolvedAgentId ?? ""),
+    queryFn: () => skillsApi.listForAgent(resolvedAgentId!),
+    enabled: !!resolvedAgentId,
+  });
+
+  const removeSkill = useMutation({
+    mutationFn: (skillSlug: string) => skillsApi.removeFromAgent(resolvedAgentId!, skillSlug),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.skills.forAgent(resolvedAgentId!) });
+    },
+  });
+
+  // Config sheet (used for both MCP and Skills management)
+  const [configSheetTab, setConfigSheetTab] = useState<"mcp" | "skills" | null>(null);
 
   const assignedIssues = (allIssues ?? [])
     .filter((i) => i.assigneeAgentId === agent?.id)
@@ -405,6 +446,8 @@ export function AgentDetail() {
         crumbs.push({ label: `Run ${urlRunId.slice(0, 8)}` });
       } else if (activeView === "configure") {
         crumbs.push({ label: "Configure" });
+      } else if (activeView === "chat") {
+        crumbs.push({ label: "Chat" });
       } else if (activeView === "runs") {
         crumbs.push({ label: "Runs" });
       }
@@ -453,6 +496,16 @@ export function AgentDetail() {
           </div>
         </div>
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          {agent.reportsTo === null && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate(`/agents/${canonicalAgentRef}/chat`)}
+            >
+              <MessageSquare className="h-3.5 w-3.5 sm:mr-1" />
+              <span className="hidden sm:inline">Chat</span>
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -558,6 +611,71 @@ export function AgentDetail() {
         </div>
       </div>
 
+      {/* MCP + Skills Tooling Bar */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {(agentMcpServers ?? []).map((assignment) => (
+          <span
+            key={assignment.mcpServerId}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+            style={{ backgroundColor: "rgba(234,179,8,0.15)", color: "#eab308" }}
+          >
+            <Plug2 className="h-3 w-3" />
+            {assignment.mcpServer?.name ?? "MCP Server"}
+            <button
+              className="ml-0.5 hover:text-destructive"
+              onClick={() => removeMcp.mutate(assignment.mcpServerId)}
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        ))}
+        {(agentSkills ?? []).map((skill) => (
+          <span
+            key={skill.skillSlug}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+            style={{ backgroundColor: "rgba(249,115,22,0.15)", color: "#f97316" }}
+          >
+            <Sparkles className="h-3 w-3" />
+            {skill.skillName}
+            <button
+              className="ml-0.5 hover:text-destructive"
+              onClick={() => removeSkill.mutate(skill.skillSlug)}
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        ))}
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-6 text-xs px-2 border dark:border-yellow-500 text-yellow-500"
+          onClick={() => setConfigSheetTab("mcp")}
+        >
+          <Plug2 className="h-3 w-3 mr-0.5" />
+          Add MCP Tool
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-6 text-xs px-2 border dark:border-amber-500 text-amber-500"
+          onClick={() => setConfigSheetTab("skills")}
+        >
+          <Sparkles className="h-3 w-3 mr-0.5" />
+          Add Skill
+        </Button>
+      </div>
+
+      {/* Agent Config Sheet (MCP + Skills) */}
+      {resolvedAgentId && resolvedCompanyId && (
+        <AgentConfigSheet
+          agentId={resolvedAgentId}
+          companyId={resolvedCompanyId}
+          initialTab={configSheetTab ?? "mcp"}
+          open={configSheetTab !== null}
+          onOpenChange={(open) => { if (!open) setConfigSheetTab(null); }}
+        />
+      )}
+
       {actionError && <p className="text-sm text-destructive">{actionError}</p>}
       {isPendingApproval && (
         <p className="text-sm text-amber-500">
@@ -645,6 +763,15 @@ export function AgentDetail() {
           onCancelActionChange={setCancelConfigAction}
           onSavingChange={setConfigSaving}
           updatePermissions={updatePermissions}
+        />
+      )}
+
+      {activeView === "chat" && agent.reportsTo === null && resolvedCompanyId && (
+        <ChatPanel
+          agentId={agent.id}
+          agentName={agent.name}
+          agentIcon={agent.icon}
+          companyId={resolvedCompanyId}
         />
       )}
 
@@ -1080,6 +1207,10 @@ function AgentConfigurePage({
         <KeysTab agentId={agentId} companyId={companyId} />
       </div>
 
+      {agent.reportsTo === null && (
+        <TelegramConfig agentId={agentId} companyId={companyId} />
+      )}
+
       {/* Configuration Revisions — collapsible at the bottom */}
       <div>
         <button
@@ -1263,6 +1394,104 @@ function RunListItem({ run, isSelected, agentId }: { run: HeartbeatRun; isSelect
         </div>
       )}
     </Link>
+  );
+}
+
+function TelegramConfig({ agentId, companyId }: { agentId: string; companyId?: string }) {
+  const [tokenInput, setTokenInput] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const statusQuery = useQuery({
+    queryKey: ["telegram", "status", agentId],
+    queryFn: async () => {
+      const res = await fetch(`/api/agents/${agentId}/telegram/status`, { credentials: "include" });
+      return res.json() as Promise<{ connected: boolean; botUsername: string | null; polling: boolean }>;
+    },
+  });
+
+  const connectMutation = useMutation({
+    mutationFn: async (botToken: string) => {
+      const res = await fetch(`/api/agents/${agentId}/telegram/connect`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ botToken }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null) as { error?: string } | null;
+        throw new Error(body?.error ?? "Failed to connect");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      setTokenInput("");
+      setError(null);
+      statusQuery.refetch();
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+
+  const disconnectMutation = useMutation({
+    mutationFn: async () => {
+      await fetch(`/api/agents/${agentId}/telegram/connect`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+    },
+    onSuccess: () => statusQuery.refetch(),
+  });
+
+  const status = statusQuery.data;
+
+  return (
+    <div>
+      <h3 className="text-sm font-medium mb-3">Telegram Bot</h3>
+      <div className="border border-border rounded-lg p-4 space-y-3">
+        {status?.connected ? (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className={cn("h-2 w-2 rounded-full", status.polling ? "bg-green-500" : "bg-yellow-500")} />
+              <span className="text-sm">
+                Connected as <span className="font-medium">@{status.botUsername}</span>
+                {!status.polling && <span className="text-muted-foreground ml-1">(not polling — restart server)</span>}
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => disconnectMutation.mutate()}
+              disabled={disconnectMutation.isPending}
+            >
+              Disconnect
+            </Button>
+          </div>
+        ) : (
+          <>
+            <p className="text-xs text-muted-foreground">
+              Connect a Telegram bot to chat with this agent via Telegram. Create a bot with{" "}
+              <span className="font-medium">@BotFather</span> and paste the token below.
+            </p>
+            <div className="flex items-center gap-2">
+              <Input
+                type="password"
+                placeholder="Bot token from @BotFather"
+                value={tokenInput}
+                onChange={(e) => setTokenInput(e.target.value)}
+                className="flex-1 text-sm"
+              />
+              <Button
+                size="sm"
+                onClick={() => connectMutation.mutate(tokenInput)}
+                disabled={!tokenInput.trim() || connectMutation.isPending}
+              >
+                {connectMutation.isPending ? "Connecting..." : "Connect"}
+              </Button>
+            </div>
+            {error && <p className="text-xs text-destructive">{error}</p>}
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 

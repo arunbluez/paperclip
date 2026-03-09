@@ -131,3 +131,30 @@ export {
   type UpdateMemberPermissions,
   type UpdateUserCompanyAccess,
 } from "./access.js";
+
+export {
+  createChatSessionSchema,
+  sendChatMessageSchema,
+  updateChatSessionSchema,
+  type CreateChatSession,
+  type SendChatMessage,
+  type UpdateChatSession,
+} from "./chat.js";
+
+export {
+  createMcpServerSchema,
+  updateMcpServerSchema,
+  assignMcpServerSchema,
+  type CreateMcpServer,
+  type UpdateMcpServer,
+  type AssignMcpServer,
+} from "./mcp.js";
+
+export {
+  assignSkillSchema,
+  type AssignSkill,
+  createCustomSkillSchema,
+  updateCustomSkillSchema,
+  type CreateCustomSkill,
+  type UpdateCustomSkill,
+} from "./skill.js";

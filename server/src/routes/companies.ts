@@ -7,26 +7,34 @@ import {
   createCompanySchema,
   updateCompanySchema,
 } from "@paperclipai/shared";
+import type { StorageService } from "../storage/types.js";
 import { forbidden } from "../errors.js";
 import { validate } from "../middleware/validate.js";
-import { accessService, companyPortabilityService, companyService, logActivity } from "../services/index.js";
+import { accessService, companyPortabilityService, companyService, telegramDashboardService, logActivity } from "../services/index.js";
 import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
 
-export function companyRoutes(db: Db) {
+/** Strip the bot token from company objects before sending to the client. */
+function stripSensitive<T extends Record<string, unknown>>(company: T): T {
+  const { telegramDashboardBotToken, ...rest } = company;
+  return rest as T;
+}
+
+export function companyRoutes(db: Db, storageService: StorageService) {
   const router = Router();
   const svc = companyService(db);
   const portability = companyPortabilityService(db);
   const access = accessService(db);
+  const tgDashboard = telegramDashboardService(db, storageService);
 
   router.get("/", async (req, res) => {
     assertBoard(req);
     const result = await svc.list();
     if (req.actor.source === "local_implicit" || req.actor.isInstanceAdmin) {
-      res.json(result);
+      res.json(result.map(stripSensitive));
       return;
     }
     const allowed = new Set(req.actor.companyIds ?? []);
-    res.json(result.filter((company) => allowed.has(company.id)));
+    res.json(result.filter((company) => allowed.has(company.id)).map(stripSensitive));
   });
 
   router.get("/stats", async (req, res) => {
@@ -59,7 +67,7 @@ export function companyRoutes(db: Db) {
       res.status(404).json({ error: "Company not found" });
       return;
     }
-    res.json(company);
+    res.json(stripSensitive(company));
   });
 
   router.post("/:companyId/export", validate(companyPortabilityExportSchema), async (req, res) => {
@@ -122,7 +130,7 @@ export function companyRoutes(db: Db) {
       entityId: company.id,
       details: { name: company.name },
     });
-    res.status(201).json(company);
+    res.status(201).json(stripSensitive(company));
   });
 
   router.patch("/:companyId", validate(updateCompanySchema), async (req, res) => {
@@ -143,7 +151,7 @@ export function companyRoutes(db: Db) {
       entityId: companyId,
       details: req.body,
     });
-    res.json(company);
+    res.json(stripSensitive(company));
   });
 
   router.post("/:companyId/archive", async (req, res) => {
@@ -164,6 +172,58 @@ export function companyRoutes(db: Db) {
       entityId: companyId,
     });
     res.json(company);
+  });
+
+  // ---------- Telegram Dashboard Bot ----------
+
+  router.get("/:companyId/telegram-dashboard/status", async (req, res) => {
+    assertBoard(req);
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    const status = await tgDashboard.getStatus(companyId);
+    res.json(status);
+  });
+
+  router.post("/:companyId/telegram-dashboard/connect", async (req, res) => {
+    assertBoard(req);
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    const { botToken, chatId } = req.body as { botToken?: string; chatId?: string };
+    if (!botToken || typeof botToken !== "string") {
+      res.status(422).json({ error: "botToken is required" });
+      return;
+    }
+    try {
+      const result = await tgDashboard.connect(companyId, botToken, chatId ?? null);
+      res.json(result);
+    } catch (err: any) {
+      res.status(422).json({ error: err.message ?? "Failed to connect" });
+    }
+  });
+
+  router.patch("/:companyId/telegram-dashboard/chat-id", async (req, res) => {
+    assertBoard(req);
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    const { chatId } = req.body as { chatId?: string };
+    if (!chatId || typeof chatId !== "string") {
+      res.status(422).json({ error: "chatId is required" });
+      return;
+    }
+    try {
+      const result = await tgDashboard.setChatId(companyId, chatId);
+      res.json(result);
+    } catch (err: any) {
+      res.status(422).json({ error: err.message ?? "Failed to set chat ID" });
+    }
+  });
+
+  router.delete("/:companyId/telegram-dashboard/connect", async (req, res) => {
+    assertBoard(req);
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    await tgDashboard.disconnect(companyId);
+    res.json({ ok: true });
   });
 
   router.delete("/:companyId", async (req, res) => {

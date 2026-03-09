@@ -46,21 +46,46 @@ async function resolvePaperclipSkillsDir(): Promise<string | null> {
  * the repo's `skills/` directory, so `--add-dir` makes Claude Code discover
  * them as proper registered skills.
  */
-async function buildSkillsDir(): Promise<string> {
+async function buildSkillsDir(
+  externalSkills?: Array<{ slug: string; skillMdUrl: string | null; skillMdContent?: string | null }>,
+): Promise<string> {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-skills-"));
   const target = path.join(tmp, ".claude", "skills");
   await fs.mkdir(target, { recursive: true });
   const skillsDir = await resolvePaperclipSkillsDir();
-  if (!skillsDir) return tmp;
-  const entries = await fs.readdir(skillsDir, { withFileTypes: true });
-  for (const entry of entries) {
-    if (entry.isDirectory()) {
-      await fs.symlink(
-        path.join(skillsDir, entry.name),
-        path.join(target, entry.name),
-      );
+  if (skillsDir) {
+    const entries = await fs.readdir(skillsDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        await fs.symlink(
+          path.join(skillsDir, entry.name),
+          path.join(target, entry.name),
+        );
+      }
     }
   }
+
+  if (externalSkills?.length) {
+    for (const skill of externalSkills) {
+      try {
+        let content: string | null = null;
+        if (skill.skillMdContent) {
+          content = skill.skillMdContent;
+        } else if (skill.skillMdUrl) {
+          const resp = await fetch(skill.skillMdUrl);
+          if (!resp.ok) continue;
+          content = await resp.text();
+        }
+        if (!content) continue;
+        const skillDir = path.join(target, skill.slug);
+        await fs.mkdir(skillDir, { recursive: true });
+        await fs.writeFile(path.join(skillDir, "SKILL.md"), content, "utf-8");
+      } catch {
+        console.warn("[skills] Failed to load external skill %s", skill.slug);
+      }
+    }
+  }
+
   return tmp;
 }
 
@@ -70,6 +95,8 @@ interface ClaudeExecutionInput {
   config: Record<string, unknown>;
   context: Record<string, unknown>;
   authToken?: string;
+  mcpConfigJson?: Record<string, unknown> | null;
+  externalSkills?: Array<{ slug: string; skillMdUrl: string | null; skillMdContent?: string | null }>;
 }
 
 interface ClaudeRuntimeConfig {
@@ -155,6 +182,10 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
     typeof context.approvalStatus === "string" && context.approvalStatus.trim().length > 0
       ? context.approvalStatus.trim()
       : null;
+  const approvalDecisionNote =
+    typeof context.approvalDecisionNote === "string" && context.approvalDecisionNote.trim().length > 0
+      ? context.approvalDecisionNote.trim()
+      : null;
   const linkedIssueIds = Array.isArray(context.issueIds)
     ? context.issueIds.filter((value): value is string => typeof value === "string" && value.trim().length > 0)
     : [];
@@ -173,6 +204,9 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
   }
   if (approvalStatus) {
     env.PAPERCLIP_APPROVAL_STATUS = approvalStatus;
+  }
+  if (approvalDecisionNote) {
+    env.PAPERCLIP_APPROVAL_DECISION_NOTE = approvalDecisionNote;
   }
   if (linkedIssueIds.length > 0) {
     env.PAPERCLIP_LINKED_ISSUE_IDS = linkedIssueIds.join(",");
@@ -265,8 +299,8 @@ export async function runClaudeLogin(input: {
   });
 }
 
-export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExecutionResult> {
-  const { runId, agent, runtime, config, context, onLog, onMeta, authToken } = ctx;
+export async function execute(ctx: AdapterExecutionContext & { mcpConfigJson?: Record<string, unknown> | null; externalSkills?: Array<{ slug: string; skillMdUrl: string }> }): Promise<AdapterExecutionResult> {
+  const { runId, agent, runtime, config, context, onLog, onMeta, authToken, mcpConfigJson, externalSkills } = ctx;
 
   const promptTemplate = asString(
     config.promptTemplate,
@@ -304,18 +338,55 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     extraArgs,
   } = runtimeConfig;
   const billingType = resolveClaudeBillingType(env);
-  const skillsDir = await buildSkillsDir();
+  const skillsDir = await buildSkillsDir(externalSkills);
+
+  // Write MCP config to skillsDir (isolated per run) and pass via --mcp-config.
+  // Avoids polluting the shared cwd which causes cross-agent MCP leakage.
+  const mcpServersMap = mcpConfigJson
+    ? ((mcpConfigJson as Record<string, unknown>).mcpServers as Record<string, unknown> ?? {})
+    : {};
+  const serverNames = Object.keys(mcpServersMap);
+
+  let mcpConfigFilePath: string | null = null;
+  if (mcpConfigJson && serverNames.length > 0) {
+    mcpConfigFilePath = path.join(skillsDir, "mcp.json");
+    const mcpContent = JSON.stringify(mcpConfigJson, null, 2);
+    await fs.writeFile(mcpConfigFilePath, mcpContent, "utf-8");
+    await onLog("stderr", `[paperclip] mcp.json written to ${mcpConfigFilePath}: ${mcpContent}\n`);
+  }
 
   // When instructionsFilePath is configured, create a combined temp file that
   // includes both the file content and the path directive, so we only need
   // --append-system-prompt-file (Claude CLI forbids using both flags together).
+  // Build MCP tool lines for system prompt injection
+  let mcpPromptSuffix = "";
+  if (mcpConfigJson && Object.keys(mcpConfigJson).length > 0) {
+    const srvNames = Object.keys(
+      (mcpConfigJson as Record<string, unknown>).mcpServers as Record<string, unknown> ?? {},
+    );
+    if (srvNames.length > 0) {
+      mcpPromptSuffix = [
+        "",
+        "",
+        "# Connected MCP Servers",
+        "The following MCP servers are connected. Their tools are DIRECTLY AVAILABLE — call them without ToolSearch.",
+        ...srvNames.map((n) => `- ${n}: tools prefixed with mcp__${n}__ (e.g. mcp__${n}__browser_navigate)`),
+      ].join("\n");
+    }
+  }
+
   let effectiveInstructionsFilePath = instructionsFilePath;
   if (instructionsFilePath) {
     const instructionsContent = await fs.readFile(instructionsFilePath, "utf-8");
     const pathDirective = `\nThe above agent instructions were loaded from ${instructionsFilePath}. Resolve any relative file references from ${instructionsFileDir}.`;
     const combinedPath = path.join(skillsDir, "agent-instructions.md");
-    await fs.writeFile(combinedPath, instructionsContent + pathDirective, "utf-8");
+    await fs.writeFile(combinedPath, instructionsContent + pathDirective + mcpPromptSuffix, "utf-8");
     effectiveInstructionsFilePath = combinedPath;
+  } else if (mcpPromptSuffix) {
+    // No instructions file but MCP servers exist — create a minimal system prompt file
+    const mcpPromptPath = path.join(skillsDir, "agent-instructions.md");
+    await fs.writeFile(mcpPromptPath, mcpPromptSuffix.trimStart(), "utf-8");
+    effectiveInstructionsFilePath = mcpPromptPath;
   }
 
   const runtimeSessionParams = parseObject(runtime.sessionParams);
@@ -353,6 +424,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       args.push("--append-system-prompt-file", effectiveInstructionsFilePath);
     }
     args.push("--add-dir", skillsDir);
+    if (mcpConfigFilePath) args.push("--mcp-config", mcpConfigFilePath);
     if (extraArgs.length > 0) args.push(...extraArgs);
     return args;
   };
@@ -399,6 +471,10 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
 
     const parsedStream = parseClaudeStreamJson(proc.stdout);
     const parsed = parsedStream.resultJson ?? parseJson(proc.stdout);
+    if (parsedStream.mcpServers && parsedStream.mcpServers.length > 0) {
+      const summary = parsedStream.mcpServers.map((s) => `${s.name}=${s.status}`).join(", ");
+      await onLog("stderr", `[paperclip] MCP servers: ${summary}\n`);
+    }
     return { proc, parsedStream, parsed };
   };
 

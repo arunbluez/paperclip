@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { companiesApi } from "../api/companies";
 import { accessApi } from "../api/access";
 import { queryKeys } from "../lib/queryKeys";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Settings, Check } from "lucide-react";
 import { CompanyPatternIcon } from "../components/CompanyPatternIcon";
 import {
@@ -381,6 +382,11 @@ export function CompanySettings() {
         </div>
       </div>
 
+      {/* Telegram Dashboard Bot */}
+      {selectedCompanyId && (
+        <TelegramDashboardConfig companyId={selectedCompanyId} />
+      )}
+
       {/* Danger Zone */}
       <div className="space-y-4">
         <div className="text-xs font-medium text-destructive uppercase tracking-wide">
@@ -432,6 +438,166 @@ export function CompanySettings() {
             )}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function TelegramDashboardConfig({ companyId }: { companyId: string }) {
+  const [tokenInput, setTokenInput] = useState("");
+  const [chatIdInput, setChatIdInput] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const statusQuery = useQuery({
+    queryKey: ["telegram-dashboard", "status", companyId],
+    queryFn: () => companiesApi.telegramDashboardStatus(companyId),
+  });
+
+  const connectMutation = useMutation({
+    mutationFn: (data: { botToken: string; chatId?: string }) =>
+      companiesApi.telegramDashboardConnect(companyId, data.botToken, data.chatId || undefined),
+    onSuccess: () => {
+      setTokenInput("");
+      setError(null);
+      statusQuery.refetch();
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+
+  const setChatIdMutation = useMutation({
+    mutationFn: (chatId: string) =>
+      companiesApi.telegramDashboardSetChatId(companyId, chatId),
+    onSuccess: () => {
+      setChatIdInput("");
+      setError(null);
+      statusQuery.refetch();
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+
+  const disconnectMutation = useMutation({
+    mutationFn: () => companiesApi.telegramDashboardDisconnect(companyId),
+    onSuccess: () => statusQuery.refetch(),
+  });
+
+  const status = statusQuery.data;
+
+  return (
+    <div className="space-y-4">
+      <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+        Telegram Dashboard Bot
+      </div>
+      <div className="space-y-3 rounded-md border border-border px-4 py-4">
+        {status?.connected ? (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className={`h-2 w-2 rounded-full ${status.polling ? "bg-green-500" : "bg-yellow-500"}`} />
+                <span className="text-sm">
+                  Connected as <span className="font-medium">@{status.botUsername}</span>
+                  {!status.polling && (
+                    <span className="text-muted-foreground ml-1">(not polling — restart server)</span>
+                  )}
+                </span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => disconnectMutation.mutate()}
+                disabled={disconnectMutation.isPending}
+              >
+                Disconnect
+              </Button>
+            </div>
+
+            {/* Chat ID configuration */}
+            <div className="space-y-2 border-t border-border pt-3">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-medium">Authorized Chat ID</span>
+                <HintIcon text="Only this Telegram chat can interact with the bot. Message the bot to see your chat ID in server logs." />
+              </div>
+              {status.chatId ? (
+                <div className="flex items-center justify-between">
+                  <code className="text-xs bg-muted px-2 py-1 rounded">{status.chatId}</code>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="text"
+                      placeholder="New chat ID"
+                      value={chatIdInput}
+                      onChange={(e) => setChatIdInput(e.target.value)}
+                      className="w-40 text-sm"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setChatIdMutation.mutate(chatIdInput)}
+                      disabled={!chatIdInput.trim() || setChatIdMutation.isPending}
+                    >
+                      Update
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    No chat ID set. Message the bot from Telegram, then check server logs for your chat ID.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="text"
+                      placeholder="Chat ID from server logs"
+                      value={chatIdInput}
+                      onChange={(e) => setChatIdInput(e.target.value)}
+                      className="flex-1 text-sm"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => setChatIdMutation.mutate(chatIdInput)}
+                      disabled={!chatIdInput.trim() || setChatIdMutation.isPending}
+                    >
+                      Set Chat ID
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <>
+            <p className="text-xs text-muted-foreground">
+              Connect a Telegram bot to access your dashboard remotely. Create a bot with{" "}
+              <span className="font-medium">@BotFather</span> and paste the token below.
+            </p>
+            <div className="space-y-2">
+              <Field label="Bot token" hint="From @BotFather on Telegram.">
+                <Input
+                  type="password"
+                  placeholder="Bot token from @BotFather"
+                  value={tokenInput}
+                  onChange={(e) => setTokenInput(e.target.value)}
+                  className="text-sm"
+                />
+              </Field>
+              <Field label="Chat ID" hint="Optional. You can set this after connecting by messaging the bot.">
+                <Input
+                  type="text"
+                  placeholder="Your Telegram chat ID (optional)"
+                  value={chatIdInput}
+                  onChange={(e) => setChatIdInput(e.target.value)}
+                  className="text-sm"
+                />
+              </Field>
+              <Button
+                size="sm"
+                onClick={() => connectMutation.mutate({ botToken: tokenInput, chatId: chatIdInput || undefined })}
+                disabled={!tokenInput.trim() || connectMutation.isPending}
+              >
+                {connectMutation.isPending ? "Connecting..." : "Connect"}
+              </Button>
+            </div>
+          </>
+        )}
+        {error && <p className="text-xs text-destructive">{error}</p>}
       </div>
     </div>
   );

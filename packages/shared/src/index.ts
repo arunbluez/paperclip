@@ -121,6 +121,15 @@ export type {
   AgentEnvConfig,
   CompanySecret,
   SecretProviderDescriptor,
+  ChatSession,
+  ChatMessage,
+  ChatStreamEvent,
+  ChatStreamEventType,
+  McpServer,
+  AgentMcpServer,
+  AgentSkill,
+  SkillCatalogEntry,
+  CustomSkill,
 } from "./types/index.js";
 
 export {
@@ -226,8 +235,27 @@ export {
   type CompanyPortabilityExport,
   type CompanyPortabilityPreview,
   type CompanyPortabilityImport,
+  createChatSessionSchema,
+  sendChatMessageSchema,
+  updateChatSessionSchema,
+  type CreateChatSession,
+  type SendChatMessage,
+  type UpdateChatSession,
+  createMcpServerSchema,
+  updateMcpServerSchema,
+  assignMcpServerSchema,
+  type CreateMcpServer,
+  type UpdateMcpServer,
+  type AssignMcpServer,
+  assignSkillSchema,
+  type AssignSkill,
+  createCustomSkillSchema,
+  updateCustomSkillSchema,
+  type CreateCustomSkill,
+  type UpdateCustomSkill,
 } from "./validators/index.js";
 
+export { SKILL_CATALOG } from "./skill-catalog.js";
 export { API_PREFIX, API } from "./api.js";
 export { normalizeAgentUrlKey, deriveAgentUrlKey, isUuidLike } from "./agent-url-key.js";
 export { deriveProjectUrlKey, normalizeProjectUrlKey } from "./project-url-key.js";

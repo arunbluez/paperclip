@@ -22,6 +22,8 @@ import type { AdapterExecutionResult, AdapterInvocationMeta, AdapterSessionCodec
 import { createLocalAgentJwt } from "../agent-auth-jwt.js";
 import { parseObject, asBoolean, asNumber, appendWithCap, MAX_EXCERPT_BYTES } from "../adapters/utils.js";
 import { secretService } from "./secrets.js";
+import { mcpServerService } from "./mcp-servers.js";
+import { skillService } from "./skills.js";
 import { resolveDefaultAgentWorkspaceDir } from "../home-paths.js";
 
 const MAX_LIVE_LOG_CHUNK_BYTES = 8 * 1024;
@@ -1269,6 +1271,20 @@ export function heartbeatService(db: Db) {
           "local agent jwt secret missing or invalid; running without injected PAPERCLIP_API_KEY",
         );
       }
+      // Build MCP config for agents with assigned MCP servers
+      const mcpSvc = mcpServerService(db);
+      const mcpConfigJson = await mcpSvc.buildMcpConfig(agent.id);
+      if (mcpConfigJson) {
+        logger.info({ agentId: agent.id, runId: run.id, mcpServers: Object.keys((mcpConfigJson as Record<string, unknown>).mcpServers as Record<string, unknown> || {}) }, "MCP config resolved for agent");
+      }
+
+      // Build external skills for agents with assigned skills
+      const skillSvc = skillService(db);
+      const externalSkills = await skillSvc.buildSkillUrlsForAgent(agent.id);
+      if (externalSkills.length > 0) {
+        logger.info({ agentId: agent.id, runId: run.id, skillCount: externalSkills.length }, "External skills resolved for agent");
+      }
+
       const adapterResult = await adapter.execute({
         runId: run.id,
         agent,
@@ -1278,7 +1294,9 @@ export function heartbeatService(db: Db) {
         onLog,
         onMeta: onAdapterMeta,
         authToken: authToken ?? undefined,
-      });
+        mcpConfigJson,
+        externalSkills,
+      } as Parameters<typeof adapter.execute>[0]);
       const nextSessionState = resolveNextSessionState({
         codec: sessionCodec,
         adapterResult,

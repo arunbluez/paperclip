@@ -85,8 +85,9 @@ export function ApprovalDetail() {
   };
 
   const approveMutation = useMutation({
-    mutationFn: () => approvalsApi.approve(approvalId!),
+    mutationFn: (note?: string) => approvalsApi.approve(approvalId!, note),
     onSuccess: () => {
+      setCommentBody("");
       setError(null);
       refresh();
       navigate(`/approvals/${approvalId}?resolved=approved`, { replace: true });
@@ -95,8 +96,9 @@ export function ApprovalDetail() {
   });
 
   const rejectMutation = useMutation({
-    mutationFn: () => approvalsApi.reject(approvalId!),
+    mutationFn: (note?: string) => approvalsApi.reject(approvalId!, note),
     onSuccess: () => {
+      setCommentBody("");
       setError(null);
       refresh();
     },
@@ -104,8 +106,9 @@ export function ApprovalDetail() {
   });
 
   const revisionMutation = useMutation({
-    mutationFn: () => approvalsApi.requestRevision(approvalId!),
+    mutationFn: (note?: string) => approvalsApi.requestRevision(approvalId!, note),
     onSuccess: () => {
+      setCommentBody("");
       setError(null);
       refresh();
     },
@@ -265,7 +268,7 @@ export function ApprovalDetail() {
               <Button
                 size="sm"
                 className="bg-green-700 hover:bg-green-600 text-white"
-                onClick={() => approveMutation.mutate()}
+                onClick={() => approveMutation.mutate(commentBody.trim() || undefined)}
                 disabled={approveMutation.isPending}
               >
                 Approve
@@ -273,7 +276,7 @@ export function ApprovalDetail() {
               <Button
                 variant="destructive"
                 size="sm"
-                onClick={() => rejectMutation.mutate()}
+                onClick={() => rejectMutation.mutate(commentBody.trim() || undefined)}
                 disabled={rejectMutation.isPending}
               >
                 Reject
@@ -284,7 +287,7 @@ export function ApprovalDetail() {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => revisionMutation.mutate()}
+              onClick={() => revisionMutation.mutate(commentBody.trim() || undefined)}
               disabled={revisionMutation.isPending}
             >
               Request revision
@@ -344,16 +347,17 @@ export function ApprovalDetail() {
         <Textarea
           value={commentBody}
           onChange={(e) => setCommentBody(e.target.value)}
-          placeholder="Add a comment..."
+          placeholder="Add feedback or a note — this will be included when you approve, reject, or request revision..."
           rows={3}
         />
         <div className="flex justify-end">
           <Button
             size="sm"
+            variant="outline"
             onClick={() => addCommentMutation.mutate()}
             disabled={!commentBody.trim() || addCommentMutation.isPending}
           >
-            {addCommentMutation.isPending ? "Posting…" : "Post comment"}
+            {addCommentMutation.isPending ? "Posting…" : "Post comment only"}
           </Button>
         </div>
       </div>

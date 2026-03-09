@@ -11,6 +11,9 @@ export interface Company {
   spentMonthlyCents: number;
   requireBoardApprovalForNewAgents: boolean;
   brandColor: string | null;
+  telegramDashboardBotToken: string | null;
+  telegramDashboardChatId: string | null;
+  telegramDashboardBotUsername: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

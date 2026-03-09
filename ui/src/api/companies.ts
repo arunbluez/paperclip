@@ -27,6 +27,19 @@ export const companiesApi = {
   ) => api.patch<Company>(`/companies/${companyId}`, data),
   archive: (companyId: string) => api.post<Company>(`/companies/${companyId}/archive`, {}),
   remove: (companyId: string) => api.delete<{ ok: true }>(`/companies/${companyId}`),
+  telegramDashboardStatus: (companyId: string) =>
+    api.get<{ connected: boolean; botUsername: string | null; chatId: string | null; polling: boolean }>(
+      `/companies/${companyId}/telegram-dashboard/status`,
+    ),
+  telegramDashboardConnect: (companyId: string, botToken: string, chatId?: string) =>
+    api.post<{ botUsername: string | null; chatId: string | null }>(
+      `/companies/${companyId}/telegram-dashboard/connect`,
+      { botToken, chatId },
+    ),
+  telegramDashboardSetChatId: (companyId: string, chatId: string) =>
+    api.patch<{ chatId: string }>(`/companies/${companyId}/telegram-dashboard/chat-id`, { chatId }),
+  telegramDashboardDisconnect: (companyId: string) =>
+    api.delete<{ ok: true }>(`/companies/${companyId}/telegram-dashboard/connect`),
   exportBundle: (companyId: string, data: { include?: { company?: boolean; agents?: boolean } }) =>
     api.post<CompanyPortabilityExportResult>(`/companies/${companyId}/export`, data),
   importPreview: (data: CompanyPortabilityPreviewRequest) =>

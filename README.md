@@ -5,15 +5,19 @@
 <p align="center">
   <a href="#quickstart"><strong>Quickstart</strong></a> &middot;
   <a href="https://paperclip.ing/docs"><strong>Docs</strong></a> &middot;
-  <a href="https://github.com/paperclipai/paperclip"><strong>GitHub</strong></a> &middot;
+  <a href="https://github.com/arunbluez/paperclip"><strong>GitHub</strong></a> &middot;
   <a href="https://discord.gg/m4HZY7xNG3"><strong>Discord</strong></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/paperclipai/paperclip/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License" /></a>
-  <a href="https://github.com/paperclipai/paperclip/stargazers"><img src="https://img.shields.io/github/stars/paperclipai/paperclip?style=flat" alt="Stars" /></a>
+  <a href="https://github.com/arunbluez/paperclip/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License" /></a>
+  <a href="https://github.com/arunbluez/paperclip/stargazers"><img src="https://img.shields.io/github/stars/arunbluez/paperclip?style=flat" alt="Stars" /></a>
   <a href="https://discord.gg/m4HZY7xNG3"><img src="https://img.shields.io/discord/000000000?label=discord" alt="Discord" /></a>
 </p>
+
+<br/>
+
+> **This is an opinionated fork of [paperclipai/paperclip](https://github.com/paperclipai/paperclip)** with additional features for MCP server management, a skills catalog, agent chat, and Telegram integration. Built for real-world use — these features were missing from core Paperclip and are needed to run AI companies effectively.
 
 <br/>
 
@@ -43,10 +47,6 @@ It looks like a task manager — but under the hood it has org charts, budgets, 
 
 <br/>
 
-> **COMING SOON: Clipmart** — Download and run entire companies with one click. Browse pre-built company templates — full org structures, agent configs, and skills — and import them into your Paperclip instance in seconds.
-
-<br/>
-
 <div align="center">
 <table>
   <tr>
@@ -57,6 +57,7 @@ It looks like a task manager — but under the hood it has org charts, budgets, 
     <td align="center"><img src="doc/assets/logos/cursor.svg" width="32" alt="Cursor" /><br/><sub>Cursor</sub></td>
     <td align="center"><img src="doc/assets/logos/bash.svg" width="32" alt="Bash" /><br/><sub>Bash</sub></td>
     <td align="center"><img src="doc/assets/logos/http.svg" width="32" alt="HTTP" /><br/><sub>HTTP</sub></td>
+    <td align="center"><sub>Telegram</sub></td>
   </tr>
 </table>
 
@@ -66,106 +67,89 @@ It looks like a task manager — but under the hood it has org charts, budgets, 
 
 <br/>
 
-## Paperclip is right for you if
+## What this fork adds
 
-- ✅ You want to build **autonomous AI companies**
-- ✅ You **coordinate many different agents** (OpenClaw, Codex, Claude, Cursor) toward a common goal
-- ✅ You have **20 simultaneous Claude Code terminals** open and lose track of what everyone is doing
-- ✅ You want agents running **autonomously 24/7**, but still want to audit work and chime in when needed
-- ✅ You want to **monitor costs** and enforce budgets
-- ✅ You want a process for managing agents that **feels like using a task manager**
-- ✅ You want to manage your autonomous businesses **from your phone**
-
-<br/>
-
-## Features
+This fork adds features that are essential for running AI companies in production. These were built out of necessity — managing agents manually doesn't scale.
 
 <table>
 <tr>
 <td align="center" width="33%">
-<h3>🔌 Bring Your Own Agent</h3>
-Any agent, any runtime, one org chart. If it can receive a heartbeat, it's hired.
+<h3>MCP Servers</h3>
+Assign MCP (Model Context Protocol) tools to agents. Manage servers, configure transports, and give agents browser access, API tools, and more — all from the dashboard.
 </td>
 <td align="center" width="33%">
-<h3>🎯 Goal Alignment</h3>
-Every task traces back to the company mission. Agents know <em>what</em> to do and <em>why</em>.
+<h3>Skills Catalog</h3>
+234+ pre-configured skills from Anthropic, ComposioHQ, and the community. Assign skills to agents or create custom ones. Skills are injected at runtime.
 </td>
 <td align="center" width="33%">
-<h3>💓 Heartbeats</h3>
-Agents wake on a schedule, check work, and act. Delegation flows up and down the org chart.
+<h3>Agent Chat</h3>
+Talk to your agents directly. SSE streaming, session history, tool call visualization. A supervision tool for the board — not replacing jobs, but enabling direct interaction when needed.
 </td>
 </tr>
 <tr>
 <td align="center">
-<h3>💰 Cost Control</h3>
-Monthly budgets per agent. When they hit the limit, they stop. No runaway costs.
+<h3>Telegram Bots</h3>
+Per-agent Telegram bots for mobile chat. Plus a company dashboard bot for monitoring status, managing approvals, and viewing tasks — all from Telegram.
 </td>
 <td align="center">
-<h3>🏢 Multi-Company</h3>
-One deployment, many companies. Complete data isolation. One control plane for your portfolio.
+<h3>Enhanced Approvals</h3>
+Agents wake up when approvals are rejected or revision-requested. Decision notes flow back to the agent. Action approvals for any task, not just hires.
 </td>
 <td align="center">
-<h3>🎫 Ticket System</h3>
-Every conversation traced. Every decision explained. Full tool-call tracing and immutable audit log.
-</td>
-</tr>
-<tr>
-<td align="center">
-<h3>🛡️ Governance</h3>
-You're the board. Approve hires, override strategy, pause or terminate any agent — at any time.
-</td>
-<td align="center">
-<h3>📊 Org Chart</h3>
-Hierarchies, roles, reporting lines. Your agents have a boss, a title, and a job description.
-</td>
-<td align="center">
-<h3>📱 Mobile Ready</h3>
-Monitor and manage your autonomous businesses from anywhere.
+<h3>Agent Configuration</h3>
+Unified config sheet for MCP servers and skills per agent. Org chart shows tool and skill counts. One place to manage what each agent can do.
 </td>
 </tr>
 </table>
 
 <br/>
 
-## Problems Paperclip solves
+## Core Paperclip features
 
-| Without Paperclip                                                                                                                     | With Paperclip                                                                                                                         |
-| ------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| ❌ You have 20 Claude Code tabs open and can't track which one does what. On reboot you lose everything.                              | ✅ Tasks are ticket-based, conversations are threaded, sessions persist across reboots.                                                |
-| ❌ You manually gather context from several places to remind your bot what you're actually doing.                                     | ✅ Context flows from the task up through the project and company goals — your agent always knows what to do and why.                  |
-| ❌ Folders of agent configs are disorganized and you're re-inventing task management, communication, and coordination between agents. | ✅ Paperclip gives you org charts, ticketing, delegation, and governance out of the box — so you run a company, not a pile of scripts. |
-| ❌ Runaway loops waste hundreds of dollars of tokens and max your quota before you even know what happened.                           | ✅ Cost tracking surfaces token budgets and throttles agents when they're out. Management prioritizes with budgets.                    |
-| ❌ You have recurring jobs (customer support, social, reports) and have to remember to manually kick them off.                        | ✅ Heartbeats handle regular work on a schedule. Management supervises.                                                                |
-| ❌ You have an idea, you have to find your repo, fire up Claude Code, keep a tab open, and babysit it.                                | ✅ Add a task in Paperclip. Your coding agent works on it until it's done. Management reviews their work.                              |
-
-<br/>
-
-## Why Paperclip is special
-
-Paperclip handles the hard orchestration details correctly.
-
-|                                   |                                                                                                               |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| **Atomic execution.**             | Task checkout and budget enforcement are atomic, so no double-work and no runaway spend.                      |
-| **Persistent agent state.**       | Agents resume the same task context across heartbeats instead of restarting from scratch.                     |
-| **Runtime skill injection.**      | Agents can learn Paperclip workflows and project context at runtime, without retraining.                      |
-| **Governance with rollback.**     | Approval gates are enforced, config changes are revisioned, and bad changes can be rolled back safely.        |
-| **Goal-aware execution.**         | Tasks carry full goal ancestry so agents consistently see the "why," not just a title.                        |
-| **Portable company templates.**   | Export/import orgs, agents, and skills with secret scrubbing and collision handling.                          |
-| **True multi-company isolation.** | Every entity is company-scoped, so one deployment can run many companies with separate data and audit trails. |
-
-<br/>
-
-## What Paperclip is not
-
-|                              |                                                                                                                      |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| **Not a chatbot.**           | Agents have jobs, not chat windows.                                                                                  |
-| **Not an agent framework.**  | We don't tell you how to build agents. We tell you how to run a company made of them.                                |
-| **Not a workflow builder.**  | No drag-and-drop pipelines. Paperclip models companies — with org charts, goals, budgets, and governance.            |
-| **Not a prompt manager.**    | Agents bring their own prompts, models, and runtimes. Paperclip manages the organization they work in.               |
-| **Not a single-agent tool.** | This is for teams. If you have one agent, you probably don't need Paperclip. If you have twenty — you definitely do. |
-| **Not a code review tool.**  | Paperclip orchestrates work, not pull requests. Bring your own review process.                                       |
+<table>
+<tr>
+<td align="center" width="33%">
+<h3>Bring Your Own Agent</h3>
+Any agent, any runtime, one org chart. If it can receive a heartbeat, it's hired.
+</td>
+<td align="center" width="33%">
+<h3>Goal Alignment</h3>
+Every task traces back to the company mission. Agents know <em>what</em> to do and <em>why</em>.
+</td>
+<td align="center" width="33%">
+<h3>Heartbeats</h3>
+Agents wake on a schedule, check work, and act. Delegation flows up and down the org chart.
+</td>
+</tr>
+<tr>
+<td align="center">
+<h3>Cost Control</h3>
+Monthly budgets per agent. When they hit the limit, they stop. No runaway costs.
+</td>
+<td align="center">
+<h3>Multi-Company</h3>
+One deployment, many companies. Complete data isolation. One control plane for your portfolio.
+</td>
+<td align="center">
+<h3>Ticket System</h3>
+Every conversation traced. Every decision explained. Full tool-call tracing and immutable audit log.
+</td>
+</tr>
+<tr>
+<td align="center">
+<h3>Governance</h3>
+You're the board. Approve hires, override strategy, pause or terminate any agent — at any time.
+</td>
+<td align="center">
+<h3>Org Chart</h3>
+Hierarchies, roles, reporting lines. Your agents have a boss, a title, and a job description.
+</td>
+<td align="center">
+<h3>Mobile Ready</h3>
+Monitor and manage your autonomous businesses from anywhere.
+</td>
+</tr>
+</table>
 
 <br/>
 
@@ -174,13 +158,7 @@ Paperclip handles the hard orchestration details correctly.
 Open source. Self-hosted. No Paperclip account required.
 
 ```bash
-npx paperclipai onboard --yes
-```
-
-Or manually:
-
-```bash
-git clone https://github.com/paperclipai/paperclip.git
+git clone https://github.com/arunbluez/paperclip.git
 cd paperclip
 pnpm install
 pnpm dev
@@ -192,23 +170,70 @@ This starts the API server at `http://localhost:3100`. An embedded PostgreSQL da
 
 <br/>
 
+## MCP Servers
+
+MCP (Model Context Protocol) lets you give agents tools — browse the web, query APIs, access databases, and more.
+
+1. Go to **MCP Servers** in the sidebar
+2. Add a server (stdio, HTTP, or SSE transport)
+3. Assign it to agents from the agent detail page or org chart
+
+Built-in servers include:
+- **Playwright Browser** — headless browser with isolated per-agent profiles
+- **Playwright CDP** — real Chrome via CDP for persistent sessions
+- **Playwriter** — browser extension relay
+
+MCP configuration is automatically injected into agent heartbeats and chat sessions.
+
+<br/>
+
+## Skills
+
+Skills teach agents new capabilities at runtime without retraining.
+
+1. Open an agent's detail page
+2. Click **Add Skill** to browse the catalog (234+ skills)
+3. Or create **Custom Skills** with inline markdown or external URLs
+
+Skills cover: document processing, code tools, data analysis, CRM, project management, communication, and more.
+
+<br/>
+
+## Telegram Integration
+
+### Agent Bots
+Give any agent a Telegram bot for mobile chat:
+1. Create a bot with [@BotFather](https://t.me/BotFather)
+2. Open the agent's detail page, go to Telegram config
+3. Paste the bot token and connect
+
+Send text or photos — the agent responds with full context.
+
+### Dashboard Bot
+Monitor your entire company from Telegram:
+1. Create a bot with [@BotFather](https://t.me/BotFather)
+2. Go to **Company Settings** > Telegram Dashboard
+3. Connect and optionally set an authorized chat ID
+
+Commands: `/status`, `/agents`, `/tasks`, `/approvals`, `/help`
+
+<br/>
+
 ## FAQ
 
 **What does a typical setup look like?**
 Locally, a single Node.js process manages an embedded Postgres and local file storage. For production, point it at your own Postgres and deploy however you like. Configure projects, agents, and goals — the agents take care of the rest.
 
-If you're a solo-entreprenuer you can use Tailscale to access Paperclip on the go. Then later you can deploy to e.g. Vercel when you need it.
+If you're a solo-entrepreneur you can use Tailscale to access Paperclip on the go. Then later you can deploy to e.g. Vercel when you need it.
 
 **Can I run multiple companies?**
 Yes. A single deployment can run an unlimited number of companies with complete data isolation.
 
-**How is Paperclip different from agents like OpenClaw or Claude Code?**
-Paperclip _uses_ those agents. It orchestrates them into a company — with org charts, budgets, goals, governance, and accountability.
+**How is this fork different from upstream Paperclip?**
+This fork adds MCP server management, a skills catalog, agent chat, Telegram integration, and enhanced approvals. These are features needed for production use that upstream doesn't have yet.
 
-**Why should I use Paperclip instead of just pointing my OpenClaw to Asana or Trello?**
-Agent orchestration has subtleties in how you coordinate who has work checked out, how to maintain sessions, monitoring costs, establishing governance - Paperclip does this for you.
-
-(Bring-your-own-ticket-system is on the Roadmap)
+**Will this fork stay compatible with upstream?**
+We periodically merge upstream changes. The new features are additive — new tables, new routes, new services — so merges are typically clean.
 
 **Do agents run continuously?**
 By default, agents run on scheduled heartbeats and event-based triggers (task assignment, @-mentions). You can also hook in continuous agents like OpenClaw. You bring your agent and Paperclip coordinates.
@@ -233,13 +258,24 @@ See [doc/DEVELOPING.md](doc/DEVELOPING.md) for the full development guide.
 
 ## Roadmap
 
-- ⚪ Get OpenClaw onboarding easier
-- ⚪ Get cloud agents working e.g. Cursor / e2b agents
-- ⚪ ClipMart - buy and sell entire agent companies
-- ⚪ Easy agent configurations / easier to understand
-- ⚪ Better support for harness engineering
-- ⚪ Plugin system (e.g. if you want to add a knowledgebase, custom tracing, queues, etc)
-- ⚪ Better docs
+### Done in this fork
+- MCP server management with agent assignment
+- Skills catalog (234+ skills) and custom skills
+- Agent chat with SSE streaming
+- Telegram bots (per-agent + company dashboard)
+- Enhanced approvals with rejection/revision wakeup
+- Action approvals for any task type
+- Agent config sheet with unified MCP/skills management
+- Assets grid for issue attachments
+
+### Planned
+- WhatsApp integration
+- Voice interaction with agents
+- Better onboarding flow for new users
+- More built-in MCP servers (GitHub, Linear, Slack)
+- Skill marketplace / community skills
+- Multi-agent chat rooms
+- Better mobile experience
 
 <br/>
 
@@ -254,18 +290,14 @@ We welcome contributions. See the [contributing guide](CONTRIBUTING.md) for deta
 ## Community
 
 - [Discord](https://discord.gg/m4HZY7xNG3) — Join the community
-- [GitHub Issues](https://github.com/paperclipai/paperclip/issues) — bugs and feature requests
-- [GitHub Discussions](https://github.com/paperclipai/paperclip/discussions) — ideas and RFC
+- [GitHub Issues](https://github.com/arunbluez/paperclip/issues) — bugs and feature requests
+- [Upstream Paperclip](https://github.com/paperclipai/paperclip) — the original project
 
 <br/>
 
 ## License
 
 MIT &copy; 2026 Paperclip
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/image?repos=paperclipai/paperclip&type=date&legend=top-left)](https://www.star-history.com/?repos=paperclipai%2Fpaperclip&type=date&legend=top-left)
 
 <br/>
 

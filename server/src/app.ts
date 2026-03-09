@@ -24,6 +24,12 @@ import { sidebarBadgeRoutes } from "./routes/sidebar-badges.js";
 import { llmRoutes } from "./routes/llms.js";
 import { assetRoutes } from "./routes/assets.js";
 import { accessRoutes } from "./routes/access.js";
+import { chatRoutes } from "./routes/chat.js";
+import { mcpServerRoutes } from "./routes/mcp-servers.js";
+import { skillRoutes } from "./routes/skills.js";
+import { customSkillRoutes } from "./routes/custom-skills.js";
+import { telegramService } from "./services/telegram.js";
+import { telegramDashboardService } from "./services/telegram-dashboard.js";
 import type { BetterAuthSessionResult } from "./auth/better-auth.js";
 
 type UiMode = "none" | "static" | "vite-dev";
@@ -88,6 +94,16 @@ export async function createApp(
   }
   app.use(llmRoutes(db));
 
+  // Resume Telegram bots (long polling) for agents that have them configured
+  telegramService(db).resumeAll().catch((err) => {
+    console.error("[telegram] Failed to resume bots:", err);
+  });
+
+  // Start the board-level Telegram dashboard bot
+  telegramDashboardService(db, opts.storageService).start().catch((err) => {
+    console.error("[telegram-dashboard] Failed to start dashboard bot:", err);
+  });
+
   // Mount API routes
   const api = Router();
   api.use(boardMutationGuard());
@@ -100,8 +116,12 @@ export async function createApp(
       companyDeletionEnabled: opts.companyDeletionEnabled,
     }),
   );
-  api.use("/companies", companyRoutes(db));
+  api.use("/companies", companyRoutes(db, opts.storageService));
   api.use(agentRoutes(db));
+  api.use(chatRoutes(db));
+  api.use(mcpServerRoutes(db));
+  api.use(skillRoutes(db));
+  api.use(customSkillRoutes(db));
   api.use(assetRoutes(db, opts.storageService));
   api.use(projectRoutes(db));
   api.use(issueRoutes(db, opts.storageService));

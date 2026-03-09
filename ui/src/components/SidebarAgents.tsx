@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
 import { NavLink, useLocation } from "@/lib/router";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, MessageCircle } from "lucide-react";
 import { useCompany } from "../context/CompanyContext";
 import { useSidebar } from "../context/SidebarContext";
 import { agentsApi } from "../api/agents";
 import { heartbeatsApi } from "../api/heartbeats";
+import { chatApi } from "../api/chat";
 import { queryKeys } from "../lib/queryKeys";
 import { cn, agentRouteRef, agentUrl } from "../lib/utils";
 import { AgentIcon } from "./AgentIconPicker";
@@ -56,6 +57,13 @@ export function SidebarAgents() {
     refetchInterval: 10_000,
   });
 
+  const { data: activeChatAgents } = useQuery({
+    queryKey: queryKeys.chat.activeChatAgents(selectedCompanyId!),
+    queryFn: () => chatApi.activeChatAgents(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+    refetchInterval: 15_000,
+  });
+
   const liveCountByAgent = useMemo(() => {
     const counts = new Map<string, number>();
     for (const run of liveRuns ?? []) {
@@ -63,6 +71,14 @@ export function SidebarAgents() {
     }
     return counts;
   }, [liveRuns]);
+
+  const chatCountByAgent = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const row of activeChatAgents ?? []) {
+      counts.set(row.agentId, row.count);
+    }
+    return counts;
+  }, [activeChatAgents]);
 
   const visibleAgents = useMemo(() => {
     const filtered = (agents ?? []).filter(
@@ -96,6 +112,7 @@ export function SidebarAgents() {
         <div className="flex flex-col gap-0.5 mt-0.5">
           {visibleAgents.map((agent: Agent) => {
             const runCount = liveCountByAgent.get(agent.id) ?? 0;
+            const chatCount = chatCountByAgent.get(agent.id) ?? 0;
             return (
               <NavLink
                 key={agent.id}
@@ -112,8 +129,13 @@ export function SidebarAgents() {
               >
                 <AgentIcon icon={agent.icon} className="shrink-0 h-3.5 w-3.5 text-muted-foreground" />
                 <span className="flex-1 truncate">{agent.name}</span>
+                {chatCount > 0 && (
+                  <span className="flex items-center gap-1 shrink-0">
+                    <MessageCircle className="h-3 w-3 text-emerald-500" />
+                  </span>
+                )}
                 {runCount > 0 && (
-                  <span className="ml-auto flex items-center gap-1.5 shrink-0">
+                  <span className={cn("flex items-center gap-1.5 shrink-0", chatCount === 0 && "ml-auto")}>
                     <span className="relative flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />

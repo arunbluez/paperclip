@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "@/lib/router";
 import { useQuery } from "@tanstack/react-query";
 import { agentsApi, type OrgNode } from "../api/agents";
+import { mcpServersApi } from "../api/mcp-servers";
+import { skillsApi } from "../api/skills";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
@@ -9,12 +11,13 @@ import { agentUrl } from "../lib/utils";
 import { EmptyState } from "../components/EmptyState";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { AgentIcon } from "../components/AgentIconPicker";
-import { Network } from "lucide-react";
+import { Network, Plug2, Sparkles } from "lucide-react";
+import { AgentConfigSheet } from "../components/AgentConfigSheet";
 import type { Agent } from "@paperclipai/shared";
 
 // Layout constants
 const CARD_W = 200;
-const CARD_H = 100;
+const CARD_H = 120;
 const GAP_X = 32;
 const GAP_Y = 80;
 const PADDING = 60;
@@ -142,6 +145,8 @@ export function OrgChart() {
   const { setBreadcrumbs } = useBreadcrumbs();
   const navigate = useNavigate();
 
+  const [sheetAgent, setSheetAgent] = useState<{ id: string; companyId: string; tab: "mcp" | "skills" } | null>(null);
+
   const { data: orgTree, isLoading } = useQuery({
     queryKey: queryKeys.org(selectedCompanyId!),
     queryFn: () => agentsApi.org(selectedCompanyId!),
@@ -159,6 +164,27 @@ export function OrgChart() {
     for (const a of agents ?? []) m.set(a.id, a);
     return m;
   }, [agents]);
+
+  // Fetch MCP counts and skills per agent for badge display
+  const { data: mcpCounts } = useQuery({
+    queryKey: queryKeys.mcpServers.agentCounts(selectedCompanyId!),
+    queryFn: () => mcpServersApi.agentMcpCounts(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+  });
+
+  const { data: companySkills } = useQuery({
+    queryKey: queryKeys.skills.forCompany(selectedCompanyId!),
+    queryFn: () => skillsApi.listForCompany(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+  });
+
+  const skillCountsByAgent = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const s of companySkills ?? []) {
+      m[s.agentId] = (m[s.agentId] || 0) + 1;
+    }
+    return m;
+  }, [companySkills]);
 
   useEffect(() => {
     setBreadcrumbs([{ label: "Org Chart" }]);
@@ -413,10 +439,62 @@ export function OrgChart() {
                   )}
                 </div>
               </div>
+              {/* Config icon buttons with colored badge dots */}
+              {agent && (
+                <div className="flex items-center gap-1.5 px-4 pb-2">
+                  <button
+                    className="relative flex items-center gap-1 h-6 px-1.5 rounded hover:bg-accent transition-colors"
+                    title="MCP Servers"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSheetAgent({ id: agent.id, companyId: agent.companyId, tab: "mcp" });
+                    }}
+                  >
+                    <Plug2 className="h-3.5 w-3.5 text-muted-foreground" />
+                    {(mcpCounts?.[agent.id] ?? 0) > 0 && (
+                      <span
+                        className="absolute -top-0.5 -right-0.5 flex items-center justify-center h-3.5 min-w-[14px] px-0.5 rounded-full text-[9px] font-bold leading-none text-white"
+                        style={{ backgroundColor: "#eab308" }}
+                      >
+                        {mcpCounts![agent.id]}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    className="relative flex items-center gap-1 h-6 px-1.5 rounded hover:bg-accent transition-colors"
+                    title="Skills"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSheetAgent({ id: agent.id, companyId: agent.companyId, tab: "skills" });
+                    }}
+                  >
+                    <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
+                    {(skillCountsByAgent[agent.id] ?? 0) > 0 && (
+                      <span
+                        className="absolute -top-0.5 -right-0.5 flex items-center justify-center h-3.5 min-w-[14px] px-0.5 rounded-full text-[9px] font-bold leading-none text-white"
+                        style={{ backgroundColor: "#f97316" }}
+                      >
+                        {skillCountsByAgent[agent.id]}
+                      </span>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
           );
         })}
       </div>
+
+      {/* Config Sheet */}
+      {sheetAgent && (
+        <AgentConfigSheet
+          agentId={sheetAgent.id}
+          companyId={sheetAgent.companyId}
+          initialTab={sheetAgent.tab}
+          open={!!sheetAgent}
+          onOpenChange={(open) => { if (!open) setSheetAgent(null); }}
+        />
+      )}
     </div>
   );
 }

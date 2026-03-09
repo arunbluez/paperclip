@@ -26,6 +26,7 @@ import {
   issueService,
   logActivity,
   secretService,
+  telegramService,
 } from "../services/index.js";
 import { conflict, forbidden, notFound, unprocessable } from "../errors.js";
 import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
@@ -1445,6 +1446,43 @@ export function agentRoutes(db: Db) {
       agentName: agent.name,
       adapterType: agent.adapterType,
     });
+  });
+
+  // ---- Telegram Bot Configuration ----
+  const tgSvc = telegramService(db);
+
+  router.post("/agents/:id/telegram/connect", async (req, res) => {
+    const agent = await svc.getById(req.params.id as string);
+    if (!agent) { res.status(404).json({ error: "Agent not found" }); return; }
+    assertBoard(req);
+    assertCompanyAccess(req, agent.companyId);
+
+    const botToken = req.body?.botToken;
+    if (!botToken || typeof botToken !== "string") {
+      res.status(400).json({ error: "botToken is required" });
+      return;
+    }
+
+    const result = await tgSvc.connect(agent.id, botToken);
+    res.json(result);
+  });
+
+  router.delete("/agents/:id/telegram/connect", async (req, res) => {
+    const agent = await svc.getById(req.params.id as string);
+    if (!agent) { res.status(404).json({ error: "Agent not found" }); return; }
+    assertBoard(req);
+    assertCompanyAccess(req, agent.companyId);
+    await tgSvc.disconnect(agent.id);
+    res.json({ ok: true });
+  });
+
+  router.get("/agents/:id/telegram/status", async (req, res) => {
+    const agent = await svc.getById(req.params.id as string);
+    if (!agent) { res.status(404).json({ error: "Agent not found" }); return; }
+    assertBoard(req);
+    assertCompanyAccess(req, agent.companyId);
+    const status = await tgSvc.getStatus(agent.id);
+    res.json(status);
   });
 
   return router;

@@ -8,6 +8,7 @@ export function parseClaudeStreamJson(stdout: string) {
   let sessionId: string | null = null;
   let model = "";
   let finalResult: Record<string, unknown> | null = null;
+  let mcpServers: Array<{ name: string; status: string }> | null = null;
   const assistantTexts: string[] = [];
 
   for (const rawLine of stdout.split(/\r?\n/)) {
@@ -20,6 +21,12 @@ export function parseClaudeStreamJson(stdout: string) {
     if (type === "system" && asString(event.subtype, "") === "init") {
       sessionId = asString(event.session_id, sessionId ?? "") || sessionId;
       model = asString(event.model, model);
+      if (Array.isArray(event.mcp_servers)) {
+        mcpServers = (event.mcp_servers as Array<Record<string, unknown>>).map((s) => ({
+          name: asString(s.name, ""),
+          status: asString(s.status, ""),
+        }));
+      }
       continue;
     }
 
@@ -48,6 +55,7 @@ export function parseClaudeStreamJson(stdout: string) {
     return {
       sessionId,
       model,
+      mcpServers,
       costUsd: null as number | null,
       usage: null as UsageSummary | null,
       summary: assistantTexts.join("\n\n").trim(),
@@ -68,6 +76,7 @@ export function parseClaudeStreamJson(stdout: string) {
   return {
     sessionId,
     model,
+    mcpServers,
     costUsd,
     usage,
     summary,

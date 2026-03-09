@@ -131,6 +131,26 @@ export function ensurePathInEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   return { ...env, PATH: defaultPathForPlatform() };
 }
 
+/**
+ * Strip pnpm/npm internal env vars that leak from the server process.
+ * These interfere with `npx` inside MCP server subprocesses (e.g. Playwright).
+ */
+export function stripPackageManagerEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const cleaned: NodeJS.ProcessEnv = {};
+  for (const [key, value] of Object.entries(env)) {
+    if (
+      key.startsWith("npm_") ||
+      key.startsWith("PNPM_") ||
+      key === "NODE_PATH" ||
+      key === "COREPACK_ROOT"
+    ) {
+      continue;
+    }
+    cleaned[key] = value;
+  }
+  return cleaned;
+}
+
 export async function ensureAbsoluteDirectory(
   cwd: string,
   opts: { createIfMissing?: boolean } = {},
@@ -219,7 +239,7 @@ export async function runChildProcess(
   const onLogError = opts.onLogError ?? ((err, id, msg) => console.warn({ err, runId: id }, msg));
 
   return new Promise<RunProcessResult>((resolve, reject) => {
-    const mergedEnv = ensurePathInEnv({ ...process.env, ...opts.env });
+    const mergedEnv = ensurePathInEnv(stripPackageManagerEnv({ ...process.env, ...opts.env }));
     const child = spawn(command, args, {
       cwd: opts.cwd,
       env: mergedEnv,
